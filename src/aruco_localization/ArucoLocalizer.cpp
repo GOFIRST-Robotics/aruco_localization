@@ -40,7 +40,10 @@ ArucoLocalizer::ArucoLocalizer() :
     mDetector_.setDictionary(mmConfig_.getDictionary());
     // (2) setting the corner refinement method
     // ... TODO -- make this corner sub pix or something
-    mDetector_.setCornerRefinementMethod(aruco::MarkerDetector::LINES);
+    aruco::MarkerDetector::Params p = mDetector_.getParameters();
+    p.setCornerRefinementMethod(aruco::CORNER_LINES);
+    mDetector_.setParameters(p);
+    // mDetector_.setCornerRefinementMethod(aruco::MarkerDetector::LINES);
 
     // set markmap size. Convert to meters if necessary
     if (mmConfig_.isExpressedInPixels())

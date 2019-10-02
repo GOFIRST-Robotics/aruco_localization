@@ -29,9 +29,8 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(OpenCV REQUIRED)
 
 # aruco installs `Findaruco.cmake` to /usr/local/lib/cmake
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/local/lib/cmake/")
-find_package(aruco 3.0.13 REQUIRED)
-# find_package(aruco 2.0.19 REQUIRED)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/local/share/")
+find_package(aruco REQUIRED)
 
 ################################################
 ## Declare ROS messages, services and actions ##

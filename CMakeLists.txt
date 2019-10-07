@@ -29,9 +29,8 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(OpenCV REQUIRED)
 
 # aruco installs `Findaruco.cmake` to /usr/local/lib/cmake
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/local/lib/cmake/")
-find_package(aruco 3.0.13 REQUIRED)
-# find_package(aruco 2.0.19 REQUIRED)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/local/share/")
+find_package(aruco REQUIRED)
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -121,10 +120,6 @@ catkin_package(
 ## Build ##
 ###########
 
-###########
-## Build ##
-###########
-
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(include ${catkin_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${aruco_INCLUDE_DIRS})
@@ -133,6 +128,7 @@ include_directories(include ${catkin_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${aruc
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(aruco_localization src/aruco_localization_node.cpp src/aruco_localization/ArucoLocalizer.cpp)
+add_dependencies(aruco_localization ${aruco_localization_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(aruco_localization ${catkin_LIBRARIES} ${OpenCV_LIBS} ${aruco_LIBS} stdc++fs)

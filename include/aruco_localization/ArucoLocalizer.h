@@ -61,6 +61,9 @@ namespace aruco_localizer {
         bool debugSaveInputFrames_;
         bool debugSaveOutputFrames_;
         std::string debugImagePath_;
+        std::string cameraFrame;
+        std::string arucoFrame;
+        std::string robotFrame;
 
         //
         // Methods

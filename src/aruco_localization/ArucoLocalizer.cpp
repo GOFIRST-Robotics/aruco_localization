@@ -14,6 +14,9 @@ ArucoLocalizer::ArucoLocalizer() :
     nh_private_.param<bool>("show_output_video", showOutputVideo_, false);
     nh_private_.param<bool>("debug_save_input_frames", debugSaveInputFrames_, false);
     nh_private_.param<bool>("debug_save_output_frames", debugSaveOutputFrames_, false);
+    nh_private_.param<std::string>("camera_frame", cameraFrame, "camera");
+    nh_private_.param<std::string>("aruco_frame", arucoFrame, "aruco");
+    nh_private_.param<std::string>("aruco_frame", robotFrame, "robot");
     nh_private_.param<std::string>("debug_image_path", debugImagePath_, "/tmp/arucoimages");
 
     // Subscribe to input video feed and publish output video feed
@@ -103,16 +106,20 @@ void ArucoLocalizer::sendtf(const cv::Mat& rvec, const cv::Mat& tvec) {
 
     // Note that `transform` is a measurement of the ArUco map w.r.t the camera,
     // therefore the inverse gives the transform from `aruco` to `camera`.
-    tf_br_.sendTransform(tf::StampedTransform(transform.inverse(), now, "aruco", "camera"));
+    // tf_br_.sendTransform(tf::StampedTransform(transform.inverse(), now, arucoFrame, cameraFrame));
+    // We don't publish this transform because we're using an EKF instead
+    // This would just annoy TF
 
     //
     // Publish measurement of the pose of the ArUco board w.r.t the camera frame
     //
 
+    tf::Stamped<tf::Pose> poseOut(transform.inverse(), now, cameraFrame); // transform.inverse() gets the pose of the camera relative to the aruco
+    tf::Transformer().transformPose(robotFrame, poseOut, poseOut); // Transform the pose of the camera into the pose of the robot
+
     geometry_msgs::PoseStamped poseMsg;
-    tf::poseTFToMsg(transform, poseMsg.pose);
-    poseMsg.header.frame_id = "camera";
-    poseMsg.header.stamp = now;
+    tf::poseStampedTFToMsg(poseOut, poseMsg);    
+    poseMsg.header.frame_id = arucoFrame; // The crux of the thing here: This pose is of the robot relative to the aruco, so it's in the aruco frame.
     estimate_pub_.publish(poseMsg);
 }
 

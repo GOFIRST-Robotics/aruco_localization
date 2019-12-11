@@ -17,6 +17,8 @@ ArucoLocalizer::ArucoLocalizer() :
     nh_private_.param<std::string>("camera_frame", cameraFrame, "camera");
     nh_private_.param<std::string>("aruco_frame", arucoFrame, "aruco");
     nh_private_.param<std::string>("aruco_frame", robotFrame, "robot");
+    nh_private_.param<double>("covar_calc_duration", covarCalcSecs, 5.0);
+    covarCalcDuration = ros::Duration(covarCalcSecs);
     nh_private_.param<std::string>("debug_image_path", debugImagePath_, "/tmp/arucoimages");
 
     // Subscribe to input video feed and publish output video feed
@@ -25,7 +27,7 @@ ArucoLocalizer::ArucoLocalizer() :
     image_pub_ = it_.advertise("output_image", 1);
 
     // Create ROS publishers
-    estimate_pub_ = nh_private_.advertise<geometry_msgs::PoseStamped>("estimate", 1);
+    estimate_pub_ = nh_private_.advertise<geometry_msgs::PoseWithCovarianceStamped>("estimate", 1);
     meas_pub_ = nh_private_.advertise<aruco_localization::MarkerMeasurementArray>("measurements", 1);
 
     // Create ROS services
@@ -117,10 +119,75 @@ void ArucoLocalizer::sendtf(const cv::Mat& rvec, const cv::Mat& tvec) {
     tf::Stamped<tf::Pose> poseOut(transform.inverse(), now, cameraFrame); // transform.inverse() gets the pose of the camera relative to the aruco
     tf::Transformer().transformPose(robotFrame, poseOut, poseOut); // Transform the pose of the camera into the pose of the robot
 
+    poseHistory.push_back(poseOut);
+
     geometry_msgs::PoseStamped poseMsg;
     tf::poseStampedTFToMsg(poseOut, poseMsg);    
     poseMsg.header.frame_id = arucoFrame; // The crux of the thing here: This pose is of the robot relative to the aruco, so it's in the aruco frame.
-    estimate_pub_.publish(poseMsg);
+    geometry_msgs::PoseWithCovarianceStamped poseCovarMsg;
+    poseCovarMsg.header = poseMsg.header;
+    poseCovarMsg.pose.pose = poseMsg.pose;
+    if (calculateCovariance(now, poseCovarMsg.pose.covariance)) {
+        estimate_pub_.publish(poseCovarMsg);
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+void ArucoLocalizer::getPoseArgs(const tf::Pose pose, double (&args)[6]) {
+    tf::Vector3 translation = pose.getOrigin();
+    tf::Quaternion rotation = pose.getRotation();
+    tf::Vector3 axis = rotation.getAxis();
+    double angleDeg = rotation.getAngle() * 180.0 / M_PI;
+    double rx, ry, rz;
+    rx = axis.m_floats[0] * angleDeg;
+    ry = axis.m_floats[1] * angleDeg;
+    rz = axis.m_floats[2] * angleDeg;
+    double x, y, z;
+    x = translation.m_floats[0];
+    y = translation.m_floats[1];
+    z = translation.m_floats[2];
+
+    args[0] = x;
+    args[1] = y;
+    args[2] = z;
+    args[3] = rx;
+    args[4] = ry;
+    args[5] = rz;
+}
+
+bool ArucoLocalizer::calculateCovariance(const ros::Time now, boost::array<double, 36> covariance) {
+    double mean[6] = {0.0};
+
+    // Calculate mean
+    int count = 0;
+    for (auto posei : poseHistory) {
+        if (posei.stamp_ >= now - covarCalcDuration) { // Filter for recent data only
+            double args[6];
+            getPoseArgs(posei, args);
+            for (int i = 0; i < 6; ++i) {
+                mean[i] += args[i];
+            }
+            ++count;
+        }
+    }
+    if (count < 2) {
+        return false; // Cannot calculate covariance
+    }
+
+    // Calculate covariance
+    for (auto posei : poseHistory) {
+        if (posei.stamp_ >= now - covarCalcDuration) { // Filter for recent data only
+            double args[6];
+            for (int i = 0; i < 6; ++i) {
+                for (int j = 0; j < 6; ++j) {
+                    covariance[6*i + j] = (args[i] - mean[i]) * (args[j] - mean[j]) / (count - 1);
+                }   
+            }
+        }
+    }
+
+    return true;
 }
 
 // ----------------------------------------------------------------------------

@@ -98,7 +98,7 @@ namespace aruco_localizer {
         void saveFrame(const cv::Mat& frame, std::string format_spec, unsigned int img_num);
 
         // Covariance calculator
-        bool calculateCovariance(const ros::Time now, boost::array<double, 36> covariance);
+        bool calculateCovariance(const ros::Time now, boost::array<double, 36>& covariance);
         void getPoseArgs(const tf::Pose pose, double (&args)[6]);
     };
 

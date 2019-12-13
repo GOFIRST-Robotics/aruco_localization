@@ -117,7 +117,10 @@ void ArucoLocalizer::sendtf(const cv::Mat& rvec, const cv::Mat& tvec) {
     //
 
     tf::Stamped<tf::Pose> poseOut(transform.inverse(), now, cameraFrame); // transform.inverse() gets the pose of the camera relative to the aruco
-    tf::Transformer().transformPose(robotFrame, poseOut, poseOut); // Transform the pose of the camera into the pose of the robot
+    if (!tf_listener_.waitForTransform(robotFrame, cameraFrame, now, ros::Duration(0.5))) {
+        return; // Can't do transform
+    }
+    tf_listener_.transformPose(robotFrame, poseOut, poseOut); // Transform the pose of the camera into the pose of the robot
 
     poseHistory.push_back(poseOut);
 
@@ -138,11 +141,11 @@ void ArucoLocalizer::getPoseArgs(const tf::Pose pose, double (&args)[6]) {
     tf::Vector3 translation = pose.getOrigin();
     tf::Quaternion rotation = pose.getRotation();
     tf::Vector3 axis = rotation.getAxis();
-    double angleDeg = rotation.getAngle() * 180.0 / M_PI;
+    double angle = rotation.getAngle();
     double rx, ry, rz;
-    rx = axis.m_floats[0] * angleDeg;
-    ry = axis.m_floats[1] * angleDeg;
-    rz = axis.m_floats[2] * angleDeg;
+    rx = axis.m_floats[0] * angle;
+    ry = axis.m_floats[1] * angle;
+    rz = axis.m_floats[2] * angle;
     double x, y, z;
     x = translation.m_floats[0];
     y = translation.m_floats[1];
@@ -156,7 +159,7 @@ void ArucoLocalizer::getPoseArgs(const tf::Pose pose, double (&args)[6]) {
     args[5] = rz;
 }
 
-bool ArucoLocalizer::calculateCovariance(const ros::Time now, boost::array<double, 36> covariance) {
+bool ArucoLocalizer::calculateCovariance(const ros::Time now, boost::array<double, 36>& covariance) {
     double mean[6] = {0.0};
 
     // Calculate mean
@@ -174,6 +177,10 @@ bool ArucoLocalizer::calculateCovariance(const ros::Time now, boost::array<doubl
     if (count < 2) {
         return false; // Cannot calculate covariance
     }
+    // Divide mean
+    for (int i = 0; i < 6; i++) {
+        mean[i] /= count;
+    }
 
     // Calculate covariance
     for (auto posei : poseHistory) {
@@ -181,7 +188,9 @@ bool ArucoLocalizer::calculateCovariance(const ros::Time now, boost::array<doubl
             double args[6];
             for (int i = 0; i < 6; ++i) {
                 for (int j = 0; j < 6; ++j) {
-                    covariance[6*i + j] = (args[i] - mean[i]) * (args[j] - mean[j]) / (count - 1);
+                    if (i == j) {
+                        covariance[6*i + j] = (args[i] - mean[i]) * (args[j] - mean[j]) / (count - 1);
+                    }
                 }   
             }
         }

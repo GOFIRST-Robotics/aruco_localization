@@ -17,7 +17,7 @@ Install the [ArUco library](https://www.uco.es/investiga/grupos/ava/node/26) (Wr
 
 ## Usage ##
 
-The `aruco_localization` node publishes two topics: `estimate` and `measurements`. Given an ArUco marker dictionary, any markers in that dictionary family will be identified and the measurement to that specific marker will be reported in the `measurements` topic. The `estimate` topic provides the overall pose estimate of a marker map. The marker map that is being tracked is defined in the `markermap_config` file, which is a YAML file that lists all of the markers and their positions within a marker map. An example YAML file can be found [here](https://github.com/plusk01/desktopquad/blob/master/catkin_ws/src/desktopquad/params/map.yaml).
+The `aruco_localization` node publishes two topics: `estimate` and `measurements`. Given an ArUco marker dictionary, any markers in that dictionary family will be identified and the measurement to that specific marker will be reported in the `measurements` topic. The `estimate` topic provides an estimate of the robot's pose in the `aruco` frame. The marker map that is being tracked is defined in the `markermap_config` file, which is a YAML file that lists all of the markers and their positions within a marker map. An example YAML file can be found [here](https://github.com/plusk01/desktopquad/blob/master/catkin_ws/src/desktopquad/params/map.yaml).
 
 ## Resources ##
 

@@ -15,6 +15,7 @@
 #include <tf/transform_broadcaster.h>
 
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <aruco_localization/MarkerMeasurement.h>
 #include <aruco_localization/MarkerMeasurementArray.h>
 #include <std_srvs/Trigger.h>
@@ -61,6 +62,14 @@ namespace aruco_localizer {
         bool debugSaveInputFrames_;
         bool debugSaveOutputFrames_;
         std::string debugImagePath_;
+        std::string cameraFrame;
+        std::string arucoFrame;
+        std::string robotFrame;
+        double covarCalcSecs;
+        ros::Duration covarCalcDuration;
+
+        // Covariance calculation history
+        std::vector<tf::Stamped<tf::Pose>> poseHistory;
 
         //
         // Methods
@@ -87,6 +96,10 @@ namespace aruco_localizer {
         void saveInputFrame(const cv::Mat& frame);
         void saveOutputFrame(const cv::Mat& frame);
         void saveFrame(const cv::Mat& frame, std::string format_spec, unsigned int img_num);
+
+        // Covariance calculator
+        bool calculateCovariance(const ros::Time now, boost::array<double, 36>& covariance);
+        void getPoseArgs(const tf::Pose pose, double (&args)[6]);
     };
 
 }

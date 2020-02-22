@@ -16,7 +16,7 @@ ArucoLocalizer::ArucoLocalizer() :
     nh_private_.param<bool>("debug_save_output_frames", debugSaveOutputFrames_, false);
     nh_private_.param<std::string>("camera_frame", cameraFrame, "camera");
     nh_private_.param<std::string>("aruco_frame", arucoFrame, "aruco");
-    nh_private_.param<std::string>("aruco_frame", robotFrame, "robot");
+    nh_private_.param<std::string>("robot_frame", robotFrame, "robot");
     nh_private_.param<double>("covar_calc_duration", covarCalcSecs, 5.0);
     covarCalcDuration = ros::Duration(covarCalcSecs);
     nh_private_.param<std::string>("debug_image_path", debugImagePath_, "/tmp/arucoimages");

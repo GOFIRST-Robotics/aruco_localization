@@ -14,7 +14,6 @@ ArucoLocalizer::ArucoLocalizer() :
     nh_private_.param<bool>("show_output_video", showOutputVideo_, false);
     nh_private_.param<bool>("debug_save_input_frames", debugSaveInputFrames_, false);
     nh_private_.param<bool>("debug_save_output_frames", debugSaveOutputFrames_, false);
-    nh_private_.param<std::string>("camera_frame", cameraFrame, "camera");
     nh_private_.param<std::string>("aruco_frame", arucoFrame, "aruco");
     nh_private_.param<std::string>("robot_frame", robotFrame, "robot");
     nh_private_.param<double>("covar_calc_duration", covarCalcSecs, 5.0);
@@ -94,7 +93,7 @@ bool ArucoLocalizer::calibrateAttitude(std_srvs::Trigger::Request &req, std_srvs
 
 // ----------------------------------------------------------------------------
 
-void ArucoLocalizer::sendtf(const cv::Mat& rvec, const cv::Mat& tvec) {
+void ArucoLocalizer::sendtf(const cv::Mat& rvec, const cv::Mat& tvec, std::string cameraFrame) {
 
     // We want all transforms to use the same exact time
     ros::Time now = ros::Time::now();
@@ -116,16 +115,20 @@ void ArucoLocalizer::sendtf(const cv::Mat& rvec, const cv::Mat& tvec) {
     // Publish measurement of the pose of the ArUco board w.r.t the camera frame
     //
 
-    tf::Stamped<tf::Pose> poseOut(transform.inverse(), now, cameraFrame); // transform.inverse() gets the pose of the camera relative to the aruco
+    tf::Pose poseOut = transform.inverse(); // transform.inverse() gets the pose of the camera relative to the aruco
     if (!tf_listener_.waitForTransform(robotFrame, cameraFrame, now, ros::Duration(0.5))) {
         return; // Can't do transform
     }
-    tf_listener_.transformPose(robotFrame, poseOut, poseOut); // Transform the pose of the camera into the pose of the robot
+    //tf_listener_.transformPose(cameraFrame, poseOut, poseOut); // Transform the pose of the camera into the pose of the robot
+    tf::StampedTransform trs;
+    tf_listener_.lookupTransform(cameraFrame, robotFrame, now, trs);
+    tf::Pose poseRobot = poseOut * trs;
 
-    poseHistory.push_back(poseOut);
+    tf::Stamped<tf::Pose> poseOutStamped(poseRobot, now, arucoFrame);
+    poseHistory.push_back(poseOutStamped);
 
     geometry_msgs::PoseStamped poseMsg;
-    tf::poseStampedTFToMsg(poseOut, poseMsg);    
+    tf::poseStampedTFToMsg(poseOutStamped, poseMsg);
     poseMsg.header.frame_id = arucoFrame; // The crux of the thing here: This pose is of the robot relative to the aruco, so it's in the aruco frame.
     geometry_msgs::PoseWithCovarianceStamped poseCovarMsg;
     poseCovarMsg.header = poseMsg.header;
@@ -191,7 +194,7 @@ bool ArucoLocalizer::calculateCovariance(const ros::Time now, boost::array<doubl
                     if (i == j) {
                         covariance[6*i + j] = (args[i] - mean[i]) * (args[j] - mean[j]) / (count - 1);
                     }
-                }   
+                }
             }
         }
     }
@@ -201,7 +204,7 @@ bool ArucoLocalizer::calculateCovariance(const ros::Time now, boost::array<doubl
 
 // ----------------------------------------------------------------------------
 
-void ArucoLocalizer::processImage(cv::Mat& frame, bool drawDetections) {
+void ArucoLocalizer::processImage(cv::Mat& frame, std::string cameraFrame, bool drawDetections) {
 
     // Detection of the board
     std::vector<aruco::Marker> detected_markers = mDetector_.detect(frame);
@@ -217,7 +220,7 @@ void ArucoLocalizer::processImage(cv::Mat& frame, bool drawDetections) {
     //
 
     aruco_localization::MarkerMeasurementArray measurement_msg;
-    measurement_msg.header.frame_id = "camera";
+    measurement_msg.header.frame_id = cameraFrame;
     measurement_msg.header.stamp = ros::Time::now();
 
     for (auto marker : detected_markers) {
@@ -261,7 +264,7 @@ void ArucoLocalizer::processImage(cv::Mat& frame, bool drawDetections) {
             if (drawDetections)
                 aruco::CvDrawingUtils::draw3dAxis(frame, camParams_, mmPoseTracker_.getRvec(), mmPoseTracker_.getTvec(), mmConfig_[0].getMarkerSize()*2);
 
-            sendtf(mmPoseTracker_.getRvec(), mmPoseTracker_.getTvec());
+            sendtf(mmPoseTracker_.getRvec(), mmPoseTracker_.getTvec(), cameraFrame);
         }
     }
 
@@ -299,8 +302,9 @@ void ArucoLocalizer::cameraCallback(const sensor_msgs::ImageConstPtr& image, con
 
     if (debugSaveInputFrames_) saveInputFrame(frame);
 
+    std::string cameraFrame = image->header.frame_id;
     // Process the image and do ArUco localization on it
-    processImage(frame, showOutputVideo_);
+    processImage(frame, cameraFrame, showOutputVideo_);
 
     if (debugSaveOutputFrames_) saveOutputFrame(frame);
 
@@ -327,7 +331,7 @@ aruco::CameraParameters ArucoLocalizer::ros2arucoCamParams(const sensor_msgs::Ca
     for(int i=0; i<9; ++i)
         cameraMatrix.at<double>(i%3, i-(i%3)*3) = cinfo->K[i];
 
-    // The ArUco library requires that there are only 4 distortion params (k1, k2, p1, p2, 0) 
+    // The ArUco library requires that there are only 4 distortion params (k1, k2, p1, p2, 0)
     if (cinfo->D.size() == 4 || cinfo->D.size() == 5) {
 
         // Make a regular 4x1 D matrix from CameraInfo

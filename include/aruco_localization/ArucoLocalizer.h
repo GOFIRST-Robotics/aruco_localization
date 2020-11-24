@@ -62,7 +62,6 @@ namespace aruco_localizer {
         bool debugSaveInputFrames_;
         bool debugSaveOutputFrames_;
         std::string debugImagePath_;
-        std::string cameraFrame;
         std::string arucoFrame;
         std::string robotFrame;
         double covarCalcSecs;
@@ -82,7 +81,7 @@ namespace aruco_localizer {
         bool calibrateAttitude(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
         // This is where the real ArUco processing is done
-        void processImage(cv::Mat& frame, bool drawDetections);
+        void processImage(cv::Mat& frame, std::string cameraFrame, bool drawDetections);
 
         // Convert ROS CameraInfo message to ArUco style CameraParameters
         aruco::CameraParameters ros2arucoCamParams(const sensor_msgs::CameraInfoConstPtr& cinfo);
@@ -90,7 +89,7 @@ namespace aruco_localizer {
         // functions to convert to tf and then broadcast
         tf::Quaternion rodriguesToTFQuat(const cv::Mat& rvec);
         tf::Transform aruco2tf(const cv::Mat& rvec, const cv::Mat& tvec);
-        void sendtf(const cv::Mat& rvec, const cv::Mat& tvec);
+        void sendtf(const cv::Mat& rvec, const cv::Mat& tvec, std::string cameraFrame);
 
         // Save the current frame to file. Useful for debugging
         void saveInputFrame(const cv::Mat& frame);
